@@ -2,21 +2,19 @@ from os.path import join
 import pickle as pkl
 from collections import Counter
 import argparse
+import pandas as pd
 
 START_TOKEN = 0
 PAD_TOKEN = 1
 END_TOKEN = 2
 UNK_TOKEN = 3
 
-# buid sign2id
-
 
 class Vocab(object):
     def __init__(self):
         self.sign2id = {"<s>": START_TOKEN, "</s>": END_TOKEN,
                         "<pad>": PAD_TOKEN, "<unk>": UNK_TOKEN}
-        self.id2sign = dict((idx, token)
-                            for token, idx in self.sign2id.items())
+        self.id2sign = {idx: token for token, idx in self.sign2id.items()}
         self.length = 4
 
     def add_sign(self, sign):
@@ -31,34 +29,34 @@ class Vocab(object):
 
 def build_vocab(data_dir, min_count=10):
     """
-    traverse training formulas to make vocab
+    Traverse training formulas from CSV to make vocab
     and store the vocab in the file
     """
     vocab = Vocab()
     counter = Counter()
 
-    formulas_file = join(data_dir, 'im2latex_formulas.norm.lst')
-    with open(formulas_file, 'r') as f:
-        formulas = [formula.strip('\n') for formula in f.readlines()]
+    # load training CSV
+    train_file = join(data_dir, "im2latex_train_filter.csv")
+    df = pd.read_csv(train_file)   # expects: image_name, formula
 
-    with open(join(data_dir, 'im2latex_train_filter.lst'), 'r') as f:
-        for line in f:
-            _, idx = line.strip('\n').split()
-            idx = int(idx)
-            formula = formulas[idx].split()
-            counter.update(formula)
+    # go through each formula
+    for formula in df["formula"]:
+        tokens = formula.split()   # space-separated tokens
+        counter.update(tokens)
 
+    # add tokens to vocab
     for word, count in counter.most_common():
         if count >= min_count:
             vocab.add_sign(word)
-    vocab_file = join(data_dir, 'vocab.pkl')
-    print("Writing Vocab File in ", vocab_file)
-    with open(vocab_file, 'wb') as w:
+
+    vocab_file = join(data_dir, "vocab.pkl")
+    print("Writing Vocab File in", vocab_file)
+    with open(vocab_file, "wb") as w:
         pkl.dump(vocab, w)
 
 
 def load_vocab(data_dir):
-    with open(join(data_dir, 'vocab.pkl'), 'rb') as f:
+    with open(join(data_dir, "vocab.pkl"), "rb") as f:
         vocab = pkl.load(f)
     print("Load vocab including {} words!".format(len(vocab)))
     return vocab
