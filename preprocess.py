@@ -1,6 +1,6 @@
-
 from os.path import join
 import argparse
+import pandas as pd
 
 from PIL import Image
 from torchvision import transforms
@@ -13,26 +13,28 @@ def preprocess(data_dir, split):
     print("Process {} dataset...".format(split))
     images_dir = join(data_dir, "formula_images_processed")
 
-    formulas_file = join(data_dir, "im2latex_formulas.norm.lst")
-    with open(formulas_file, 'r') as f:
-        formulas = [formula.strip('\n') for formula in f.readlines()]
-
-    split_file = join(data_dir, "im2latex_{}_filter.lst".format(split))
+    # Load CSV (instead of .lst)
+    split_file = join(data_dir, f"im2latex_{split}_filter.csv")
+    df = pd.read_csv(split_file)  # expects columns like: image_name, formula
+    print("df",df)
     pairs = []
     transform = transforms.ToTensor()
-    with open(split_file, 'r') as f:
-        for line in f:
-            img_name, formula_id = line.strip('\n').split()
-            # load img and its corresponding formula
-            img_path = join(images_dir, img_name)
-            img = Image.open(img_path)
-            img_tensor = transform(img)
-            formula = formulas[int(formula_id)]
-            pair = (img_tensor, formula)
-            pairs.append(pair)
-        pairs.sort(key=img_size)
 
-    out_file = join(data_dir, "{}.pkl".format(split))
+    for _, row in df.iterrows():
+        img_name = row["image"]
+        formula = row["formula"]
+
+        img_path = join(images_dir, img_name)
+        img = Image.open(img_path)
+        img_tensor = transform(img)
+
+        pair = (img_tensor, formula)
+        pairs.append(pair)
+
+    # sort by image size
+    pairs.sort(key=img_size)
+
+    out_file = join(data_dir, f"{split}.pkl")
     torch.save(pairs, out_file)
     print("Save {} dataset to {}".format(split, out_file))
 
